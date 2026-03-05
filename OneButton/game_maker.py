@@ -635,7 +635,6 @@ while True:
             pending_single = False
             tap_times.clear()
             place_at_cursor()
-
  
     screen.fill(BG)
     draw_right_side()
