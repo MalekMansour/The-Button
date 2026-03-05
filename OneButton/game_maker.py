@@ -636,31 +636,7 @@ while True:
             tap_times.clear()
             place_at_cursor()
 
-    # EXTRA: detect "double tap + hold second" and "triple tap + hold third"
-    # We do this by watching holds that occur shortly after taps.
-    # Implementation approach:
-    # - If the user holds (dur>=HOLD_THRESHOLD) right after 1 tap within DOUBLE_WINDOW: start auto LEFT
-    # - If the user holds right after 2 taps within TRIPLE_WINDOW: start auto UP
-    #
-    # To achieve this cleanly, we need to process holds on release.
-    # We already captured dur on release, but the above event loop doesn't store sequences for holds.
-    # So we track last hold release times by storing them in a lightweight global state.
-
-    # We'll implement it by storing the last "hold release" event inside globals:
-    # (Set in MOUSEBUTTONUP when dur>=HOLD_THRESHOLD)
-    # To keep the code simple, we recompute from press_start_time directly in that branch:
-    # -> We need to store when that hold release happened.
-    #
-    # We'll add a small state machine with two vars:
-    # - last_hold_time
-    # - last_hold_duration
-    #
-    # (They update only on hold releases on the button.)
-    #
-    # But since we already got here, implement it minimally:
-    pass  # placeholder to keep structure clear
-
-    # --------- DRAW ----------
+ 
     screen.fill(BG)
     draw_right_side()
     draw_left_panel(mouse_pos)
