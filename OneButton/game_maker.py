@@ -1,131 +1,91 @@
+import pygame
 import sys
 import math
 import time
-import pygame
-
-# True multi-window uses pygame._sdl2 (Pygame 2)
-try:
-    import pygame._sdl2 as sdl2
-except Exception:
-    print("This program needs pygame._sdl2 (Pygame 2) for true multi-window support.")
-    print("Install/upgrade with: pip install -U pygame")
-    sys.exit(1)
+from collections import deque
 
 pygame.init()
 pygame.font.init()
 
 # -----------------------------
-# THEME / COLORS
+# WINDOW
 # -----------------------------
-# Button window theme
-BTN_BG = (245, 245, 248)
+WIDTH, HEIGHT = 1200, 720
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("THE BUTTON — One-Button Game Maker")
+clock = pygame.time.Clock()
+
+# -----------------------------
+# COLORS / THEME
+# -----------------------------
+# Left button panel
+PANEL_BG = (245, 245, 248)
 BTN_RED = (210, 40, 40)
 BTN_HOVER = (240, 70, 70)
 BTN_PRESSED = (190, 25, 25)
 BTN_SHADOW = (150, 20, 20)
 BTN_TEXT = (255, 255, 255)
 
-# Board window theme (neon-dark)
-BOARD_BG = (16, 18, 26)
-BOARD_GRID = (30, 34, 48)
-PANEL_BG = (25, 28, 40)
-PANEL_BORDER = (70, 80, 110)
+# Main editor (neon-ish)
+BG = (16, 18, 26)
+GRID_BG = (30, 34, 48)
+GRID_LINE = (25, 28, 42)
+TOP_BAR = (25, 28, 40)
+TOP_BORDER = (70, 80, 110)
 TEXT_MAIN = (240, 240, 255)
 TEXT_DIM = (170, 175, 210)
 
-ACCENT = (120, 200, 255)   # cyan
-ACCENT2 = (255, 120, 170)  # pink
-
-WALL_COL = (100, 110, 140)
+ACCENT = (120, 200, 255)
+WALL_COL = (105, 115, 150)
 PLAYER_COL = (80, 170, 255)
 ENEMY_COL = (255, 90, 90)
 EXIT_COL = (90, 255, 140)
-ERASE_COL = (130, 130, 130)
+ERASE_COL = (150, 150, 160)
+CURSOR_COL = (255, 230, 120)
 
 # -----------------------------
 # FONTS
 # -----------------------------
-font_btn = pygame.font.SysFont("arial", 34, bold=True)
 font_big = pygame.font.SysFont("consolas", 32, bold=True)
 font_mid = pygame.font.SysFont("consolas", 22, bold=True)
 font_small = pygame.font.SysFont("consolas", 16, bold=False)
+font_btn = pygame.font.SysFont("arial", 34, bold=True)
 
 # -----------------------------
-# WINDOWS
+# UI LAYOUT
 # -----------------------------
-BTN_W, BTN_H = 420, 520
-BOARD_W, BOARD_H = 1100, 740
+LEFT_W = 380
+RIGHT_X = LEFT_W
+RIGHT_W = WIDTH - LEFT_W
 
-button_win = sdl2.Window("THE BUTTON", size=(BTN_W, BTN_H), position=(80, 80))
-board_win = sdl2.Window("ONE-BUTTON GAME MAKER", size=(BOARD_W, BOARD_H), position=(540, 60))
+# Grid
+CELL = 34
+GRID_W = 22
+GRID_H = 16
 
-btn_renderer = sdl2.Renderer(button_win)
-board_renderer = sdl2.Renderer(board_win)
-
-btn_surface = pygame.Surface((BTN_W, BTN_H), pygame.SRCALPHA)
-board_surface = pygame.Surface((BOARD_W, BOARD_H), pygame.SRCALPHA)
-
-BTN_ID = button_win.id
-BOARD_ID = board_win.id
-
-def renderer_present_surface(renderer, surface, w, h):
-    """Present a pygame Surface into an SDL2 renderer (robust across pygame builds)."""
-    tex = sdl2.Texture.from_surface(renderer, surface)
-    if hasattr(renderer, "clear"):
-        renderer.clear()
-
-    # Your pygame build wants destination rect positionally (no keyword).
-    try:
-        renderer.blit(tex, (0, 0, w, h))
-    except TypeError:
-        # Other builds may accept keyword variants
-        try:
-            renderer.blit(tex, dstrect=(0, 0, w, h))
-        except TypeError:
-            renderer.blit(tex, dest=(0, 0, w, h))
-
-    renderer.present()
-    tex.destroy()
+GRID_X = RIGHT_X + 40
+GRID_Y = 110
+GRID_RECT = pygame.Rect(GRID_X, GRID_Y, GRID_W * CELL, GRID_H * CELL)
 
 # -----------------------------
-# UTILS
+# BUTTON ANIMATION (your style)
 # -----------------------------
+BASE_BTN_W, BASE_BTN_H = 260, 120
+btn_center = (LEFT_W // 2, 290)
+
+press_amount = 0.0
+PRESS_SPEED = 14.0
+is_pressing = False
+mouse_down_started_on_button = False
+
 def lerp(a, b, t):
     return a + (b - a) * t
 
 def clamp(x, a, b):
     return max(a, min(b, x))
 
-def rounded_rect(surf, rect, color, radius=16, width=0):
-    pygame.draw.rect(surf, color, rect, width=width, border_radius=radius)
-
-def soft_glow_circle(surf, pos, base_r, color, layers=6, alpha_start=60):
-    for i in range(layers, 0, -1):
-        r = base_r + i * 3
-        a = int(alpha_start * (i / layers))
-        glow = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (*color, a), (r + 1, r + 1), r)
-        surf.blit(glow, (pos[0] - r - 1, pos[1] - r - 1))
-
-def draw_grid_background(surf):
-    surf.fill(BOARD_BG)
-    step = 24
-    for x in range(0, BOARD_W, step):
-        pygame.draw.line(surf, (20, 22, 32), (x, 0), (x, BOARD_H))
-    for y in range(0, BOARD_H, step):
-        pygame.draw.line(surf, (20, 22, 32), (0, y), (BOARD_W, y))
-
-# -----------------------------
-# BUTTON ANIMATION (your style)
-# -----------------------------
-BASE_BTN_W, BASE_BTN_H = 260, 120
-btn_center = (BTN_W // 2, BTN_H // 2 + 30)
-
-press_amount = 0.0
-PRESS_SPEED = 14.0
-is_pressing = False
-
 def get_button_rect(press_t: float):
+    # Same press feel you had
     scale = lerp(1.0, 0.94, press_t)
     y_offset = lerp(0.0, 10.0, press_t)
     w = int(BASE_BTN_W * scale)
@@ -134,15 +94,7 @@ def get_button_rect(press_t: float):
     rect.center = (btn_center[0], int(btn_center[1] + y_offset))
     return rect
 
-def draw_button_ui(surf, mouse_pos, press_t, label="PRESS"):
-    surf.fill(BTN_BG)
-
-    title = font_mid.render("ONE BUTTON", True, (30, 30, 40))
-    surf.blit(title, (24, 18))
-    subtitle = font_small.render("Tap / Double Tap / Hold", True, (90, 90, 105))
-    surf.blit(subtitle, (24, 48))
-
-    rect = get_button_rect(press_t)
+def draw_button(surf, rect, mouse_pos, press_t, label="PRESS"):
     hovering = rect.collidepoint(mouse_pos)
 
     if press_t > 0.5:
@@ -152,47 +104,49 @@ def draw_button_ui(surf, mouse_pos, press_t, label="PRESS"):
 
     border_radius = 20
 
+    # Shadow
     shadow_offset = int(lerp(8, 4, press_t))
     shadow_rect = rect.copy()
     shadow_rect.y += shadow_offset
     pygame.draw.rect(surf, BTN_SHADOW, shadow_rect, border_radius=border_radius)
 
+    # Button body
     pygame.draw.rect(surf, color, rect, border_radius=border_radius)
 
+    # Gloss highlight
     highlight_alpha = int(lerp(70, 25, press_t))
     highlight_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height // 3)
     highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
     highlight_surface.fill((255, 255, 255, highlight_alpha))
     surf.blit(highlight_surface, highlight_rect.topleft)
 
+    # Text
     text_surface = font_btn.render(label, True, BTN_TEXT)
     text_rect = text_surface.get_rect(center=(rect.centerx, rect.centery + int(lerp(0, 2, press_t))))
     surf.blit(text_surface, text_rect)
 
-    hints = [
-        "Tap: cycle tool",
-        "Double-tap: place / reset",
-        "Hold: move cursor (BUILD)",
-        "Triple-tap: BUILD / PLAY",
-        "Optional: C clear, R reset play",
-    ]
-    y = BTN_H - 150
-    for h in hints:
-        s = font_small.render(h, True, (85, 85, 100))
-        surf.blit(s, (24, y))
-        y += 22
+# -----------------------------
+# GLOW HELPERS
+# -----------------------------
+def rounded_rect(surf, rect, color, radius=16, width=0):
+    pygame.draw.rect(surf, color, rect, width=width, border_radius=radius)
 
-    return rect
+def soft_glow_circle(surf, pos, base_r, color, layers=6, alpha_start=70):
+    for i in range(layers, 0, -1):
+        r = base_r + i * 3
+        a = int(alpha_start * (i / layers))
+        glow = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*color, a), (r + 1, r + 1), r)
+        surf.blit(glow, (pos[0] - r - 1, pos[1] - r - 1))
+
+def soft_glow_rect(surf, rect, color, alpha=70, grow=10, radius=14):
+    glow = pygame.Surface((rect.w + grow * 2, rect.h + grow * 2), pygame.SRCALPHA)
+    pygame.draw.rect(glow, (*color, alpha), (0, 0, glow.get_width(), glow.get_height()), border_radius=radius)
+    surf.blit(glow, (rect.x - grow, rect.y - grow))
 
 # -----------------------------
-# GAME MAKER (board window)
+# GAME DATA
 # -----------------------------
-CELL = 34
-GRID_W = 24
-GRID_H = 18
-GRID_X = 30
-GRID_Y = 90
-
 EMPTY = 0
 WALL = 1
 PLAYER = 2
@@ -200,38 +154,35 @@ ENEMY = 3
 EXIT = 4
 
 TOOLS = [
-    (WALL, "WALL", WALL_COL),
+    (WALL,   "WALL",   WALL_COL),
     (PLAYER, "PLAYER", PLAYER_COL),
-    (ENEMY, "ENEMY", ENEMY_COL),
-    (EXIT, "EXIT", EXIT_COL),
-    (EMPTY, "ERASE", ERASE_COL),
+    (ENEMY,  "ENEMY",  ENEMY_COL),
+    (EXIT,   "EXIT",   EXIT_COL),
+    (EMPTY,  "ERASE",  ERASE_COL),
 ]
 tool_index = 0
 
 board = [[EMPTY for _ in range(GRID_W)] for __ in range(GRID_H)]
-cursor = [0, 0]
+cursor = [0, 0]  # grid coords
 
-cursor_move_accum = 0.0
-CURSOR_STEP_TIME = 0.12
-
+# Modes
 MODE_BUILD = 0
 MODE_PLAY = 1
 mode = MODE_BUILD
 
+# Play runtime
 player_pos = None
 enemy_positions = []
 exit_pos = None
-
 game_state = "READY"  # READY / RUN / WIN / LOSE
 sim_accum = 0.0
 SIM_STEP = 0.16
 
-def reset_level_runtime_from_board():
+def reset_runtime_from_board():
     global player_pos, enemy_positions, exit_pos, game_state, sim_accum
     player_pos = None
     enemy_positions = []
     exit_pos = None
-
     for y in range(GRID_H):
         for x in range(GRID_W):
             v = board[y][x]
@@ -241,14 +192,33 @@ def reset_level_runtime_from_board():
                 enemy_positions.append((x, y))
             elif v == EXIT:
                 exit_pos = (x, y)
-
     game_state = "READY"
     sim_accum = 0.0
 
 def clear_board():
     global board
     board = [[EMPTY for _ in range(GRID_W)] for __ in range(GRID_H)]
-    reset_level_runtime_from_board()
+    reset_runtime_from_board()
+
+def place_tool_at_cursor():
+    """Place tool with constraints: only 1 player and 1 exit."""
+    global board
+    tid, _, _ = TOOLS[tool_index]
+    x, y = cursor
+
+    if tid == PLAYER:
+        for gy in range(GRID_H):
+            for gx in range(GRID_W):
+                if board[gy][gx] == PLAYER:
+                    board[gy][gx] = EMPTY
+    if tid == EXIT:
+        for gy in range(GRID_H):
+            for gx in range(GRID_W):
+                if board[gy][gx] == EXIT:
+                    board[gy][gx] = EMPTY
+
+    board[y][x] = tid
+    reset_runtime_from_board()
 
 def grid_in_bounds(x, y):
     return 0 <= x < GRID_W and 0 <= y < GRID_H
@@ -257,18 +227,18 @@ def is_blocked(x, y):
     return (not grid_in_bounds(x, y)) or board[y][x] == WALL
 
 def neighbors4(x, y):
-    for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
+    for dx, dy in ((1,0), (-1,0), (0,1), (0,-1)):
         nx, ny = x + dx, y + dy
         if grid_in_bounds(nx, ny) and not is_blocked(nx, ny):
             yield (nx, ny)
 
 def bfs_next_step(start, goal):
+    """Return next cell from start toward goal. If unreachable, stay."""
     if start is None or goal is None:
         return start
     if start == goal:
         return start
 
-    from collections import deque
     q = deque([start])
     came = {start: None}
 
@@ -291,115 +261,64 @@ def bfs_next_step(start, goal):
         prev = came[cur]
     return cur
 
-def draw_board_window(surf):
-    draw_grid_background(surf)
+def play_toggle_run():
+    global game_state
+    if game_state == "READY":
+        game_state = "RUN"
+    elif game_state == "RUN":
+        game_state = "READY"
+    else:
+        game_state = "READY"
 
-    # Top bar
-    rounded_rect(surf, pygame.Rect(20, 18, BOARD_W - 40, 56), PANEL_BG, radius=18)
-    rounded_rect(surf, pygame.Rect(20, 18, BOARD_W - 40, 56), PANEL_BORDER, radius=18, width=2)
-    surf.blit(font_big.render("ONE-BUTTON GAME MAKER", True, TEXT_MAIN), (40, 30))
+def play_reset():
+    reset_runtime_from_board()
 
-    mode_txt = "BUILD" if mode == MODE_BUILD else "PLAY"
-    mode_col = ACCENT if mode == MODE_BUILD else EXIT_COL
-    mode_badge = pygame.Rect(BOARD_W - 180, 26, 140, 40)
-    rounded_rect(surf, mode_badge, (35, 40, 58), radius=14)
-    rounded_rect(surf, mode_badge, mode_col, radius=14, width=2)
-    surf.blit(font_mid.render(mode_txt, True, mode_col), (mode_badge.x + 34, mode_badge.y + 9))
+def simulate_play_step():
+    global player_pos, enemy_positions, game_state
+    if player_pos is None or exit_pos is None:
+        game_state = "READY"
+        return
 
-    # Tool panel
-    panel = pygame.Rect(20, 90, 260, BOARD_H - 110)
-    rounded_rect(surf, panel, PANEL_BG, radius=18)
-    rounded_rect(surf, panel, PANEL_BORDER, radius=18, width=2)
+    # player moves toward exit
+    player_pos = bfs_next_step(player_pos, exit_pos)
 
-    surf.blit(font_mid.render("TOOLS", True, TEXT_MAIN), (40, 110))
-    surf.blit(font_small.render("Tap to cycle • Double-tap to place", True, TEXT_DIM), (40, 140))
+    # enemies chase player
+    enemy_positions = [bfs_next_step(e, player_pos) for e in enemy_positions]
 
-    y = 175
-    for i, (_, name, col) in enumerate(TOOLS):
-        r = pygame.Rect(40, y, 220, 44)
-        selected = (i == tool_index)
-        rounded_rect(surf, r, (32, 36, 52) if selected else (28, 32, 46), radius=14)
-        if selected:
-            rounded_rect(surf, r, col, radius=14, width=2)
+    # lose if touched
+    if any(e == player_pos for e in enemy_positions):
+        game_state = "LOSE"
+        return
 
-        icon_center = (r.x + 22, r.y + 22)
-        soft_glow_circle(surf, icon_center, 10, col, layers=5, alpha_start=55)
-        pygame.draw.circle(surf, col, icon_center, 10)
+    # win if reach exit
+    if player_pos == exit_pos:
+        game_state = "WIN"
+        return
 
-        surf.blit(font_mid.render(name, True, TEXT_MAIN), (r.x + 48, r.y + 10))
-        y += 56
+# -----------------------------
+# ONE-BUTTON INPUT LANGUAGE
+# -----------------------------
+DOUBLE_TAP_WINDOW = 0.33
+TRIPLE_TAP_WINDOW = 0.75
+HOLD_THRESHOLD = 0.38
 
-    # Grid
-    grid_rect = pygame.Rect(GRID_X + 280, GRID_Y, GRID_W * CELL, GRID_H * CELL)
-    rounded_rect(surf, pygame.Rect(grid_rect.x - 10, grid_rect.y - 10, grid_rect.w + 20, grid_rect.h + 20),
-                 (22, 25, 36), radius=18)
-    rounded_rect(surf, pygame.Rect(grid_rect.x - 10, grid_rect.y - 10, grid_rect.w + 20, grid_rect.h + 20),
-                 (70, 80, 110), radius=18, width=2)
+tap_times = []
+pending_single_tap = False
+pending_tap_time = 0.0
+press_start_time = 0.0
 
-    t = time.time()
-    for gy in range(GRID_H):
-        for gx in range(GRID_W):
-            v = board[gy][gx]
-            x = grid_rect.x + gx * CELL
-            y = grid_rect.y + gy * CELL
-            cellr = pygame.Rect(x, y, CELL, CELL)
+# Hold -> cursor scan
+cursor_move_accum = 0.0
+CURSOR_STEP_TIME = 0.10  # faster feels better
 
-            pygame.draw.rect(surf, BOARD_GRID, cellr)
-            pygame.draw.rect(surf, (25, 28, 42), cellr, 1)
+def register_tap(t):
+    tap_times.append(t)
+    # keep only taps within triple window
+    while tap_times and t - tap_times[0] > TRIPLE_TAP_WINDOW:
+        tap_times.pop(0)
 
-            if v == WALL:
-                rounded_rect(surf, cellr.inflate(-6, -6), WALL_COL, radius=8)
-            elif v == EXIT:
-                cx, cy = cellr.center
-                soft_glow_circle(surf, (cx, cy), 12, EXIT_COL, layers=7, alpha_start=70)
-                pygame.draw.circle(surf, EXIT_COL, (cx, cy), 12)
-            elif v == PLAYER:
-                cx, cy = cellr.center
-                soft_glow_circle(surf, (cx, cy), 12, PLAYER_COL, layers=7, alpha_start=70)
-                pygame.draw.circle(surf, PLAYER_COL, (cx, cy), 12)
-            elif v == ENEMY:
-                cx, cy = cellr.center
-                soft_glow_circle(surf, (cx, cy), 11, ENEMY_COL, layers=6, alpha_start=65)
-                pygame.draw.circle(surf, ENEMY_COL, (cx, cy), 11)
-
-    # Cursor highlight
-    cx, cy = cursor
-    cur_cell = pygame.Rect(grid_rect.x + cx * CELL, grid_rect.y + cy * CELL, CELL, CELL)
-    pulse = (math.sin(t * 6.0) + 1.0) * 0.5
-    glow_col = (255, 230, 120)
-
-    glow = pygame.Surface((cur_cell.w + 24, cur_cell.h + 24), pygame.SRCALPHA)
-    pygame.draw.rect(glow, (*glow_col, int(70 * pulse)), (0, 0, glow.get_width(), glow.get_height()), border_radius=12)
-    surf.blit(glow, (cur_cell.x - 12, cur_cell.y - 12))
-    pygame.draw.rect(surf, glow_col, cur_cell, 3, border_radius=8)
-
-    # Play status line (small)
-    if mode == MODE_PLAY:
-        status = "Tap = start/pause • Double-tap = reset • Triple-tap = back to BUILD"
-        if game_state == "WIN":
-            status = "YOU WIN! Double-tap reset • Triple-tap back to BUILD"
-        elif game_state == "LOSE":
-            status = "YOU DIED! Double-tap reset • Triple-tap back to BUILD"
-        surf.blit(font_small.render(status, True, TEXT_DIM), (grid_rect.x, grid_rect.bottom + 18))
-
-def place_tool_at_cursor():
-    global board
-    tid, _, _ = TOOLS[tool_index]
-    x, y = cursor
-
-    if tid == PLAYER:
-        for gy in range(GRID_H):
-            for gx in range(GRID_W):
-                if board[gy][gx] == PLAYER:
-                    board[gy][gx] = EMPTY
-    if tid == EXIT:
-        for gy in range(GRID_H):
-            for gx in range(GRID_W):
-                if board[gy][gx] == EXIT:
-                    board[gy][gx] = EMPTY
-
-    board[y][x] = tid
-    reset_level_runtime_from_board()
+def recent_taps(t, window):
+    return [x for x in tap_times if t - x <= window]
 
 def move_cursor_scan(dt):
     global cursor_move_accum, cursor
@@ -416,156 +335,236 @@ def move_cursor_scan(dt):
 def toggle_mode():
     global mode
     mode = MODE_PLAY if mode == MODE_BUILD else MODE_BUILD
-    reset_level_runtime_from_board()
+    reset_runtime_from_board()
 
-def play_reset():
-    reset_level_runtime_from_board()
+# -----------------------------
+# DRAW: LEFT PANEL
+# -----------------------------
+def draw_left_panel(mouse_pos):
+    # panel background
+    pygame.draw.rect(screen, PANEL_BG, pygame.Rect(0, 0, LEFT_W, HEIGHT))
 
-def play_toggle_run():
-    global game_state
-    if game_state == "READY":
-        game_state = "RUN"
-    elif game_state == "RUN":
-        game_state = "READY"
+    # header
+    screen.blit(font_mid.render("THE BUTTON", True, (25, 25, 35)), (26, 18))
+    screen.blit(font_small.render("One-button level editor + playtest", True, (90, 90, 105)), (26, 48))
+
+    # mode badge
+    badge = pygame.Rect(26, 78, LEFT_W - 52, 46)
+    rounded_rect(screen, badge, (235, 235, 242), radius=14)
+    rounded_rect(screen, badge, (210, 210, 220), radius=14, width=2)
+
+    mtxt = "BUILD MODE" if mode == MODE_BUILD else "PLAY MODE"
+    mcol = (40, 140, 255) if mode == MODE_BUILD else (40, 190, 120)
+    screen.blit(font_mid.render(mtxt, True, mcol), (badge.x + 16, badge.y + 10))
+
+    # button
+    rect = get_button_rect(press_amount)
+    label = "BUILD" if mode == MODE_BUILD else "PLAY"
+    draw_button(screen, rect, mouse_pos, press_amount, label=label)
+
+    # controls
+    lines = [
+        "Tap: cycle tool / start-pause",
+        "Double-tap: place / reset",
+        "Hold: move cursor (BUILD)",
+        "Triple-tap: toggle BUILD/PLAY",
+        "",
+        "Optional keys:",
+        "C = clear level",
+        "R = reset play",
+    ]
+    y = 440
+    for ln in lines:
+        col = (95, 95, 110) if ln else (95, 95, 110)
+        screen.blit(font_small.render(ln, True, col), (26, y))
+        y += 20
+
+    return rect
+
+# -----------------------------
+# DRAW: RIGHT SIDE (EDITOR)
+# -----------------------------
+def draw_right_side():
+    # background
+    screen.fill(BG, rect=pygame.Rect(RIGHT_X, 0, RIGHT_W, HEIGHT))
+
+    # top bar
+    top = pygame.Rect(RIGHT_X + 20, 18, RIGHT_W - 40, 56)
+    rounded_rect(screen, top, TOP_BAR, radius=18)
+    rounded_rect(screen, top, TOP_BORDER, radius=18, width=2)
+    screen.blit(font_big.render("ONE-BUTTON GAME MAKER", True, TEXT_MAIN), (RIGHT_X + 40, 30))
+
+    # tool info
+    tid, tname, tcol = TOOLS[tool_index]
+    tool_box = pygame.Rect(RIGHT_X + 760, 26, RIGHT_W - 820, 40)
+    rounded_rect(screen, tool_box, (35, 40, 58), radius=14)
+    rounded_rect(screen, tool_box, tcol, radius=14, width=2)
+    screen.blit(font_mid.render(f"TOOL: {tname}", True, tcol), (tool_box.x + 14, tool_box.y + 9))
+
+    # grid frame
+    frame = GRID_RECT.inflate(24, 24)
+    rounded_rect(screen, frame, (22, 25, 36), radius=18)
+    rounded_rect(screen, frame, (70, 80, 110), radius=18, width=2)
+
+    # draw grid cells
+    t = time.time()
+    for gy in range(GRID_H):
+        for gx in range(GRID_W):
+            v = board[gy][gx]
+            x = GRID_RECT.x + gx * CELL
+            y = GRID_RECT.y + gy * CELL
+            cellr = pygame.Rect(x, y, CELL, CELL)
+
+            pygame.draw.rect(screen, GRID_BG, cellr)
+            pygame.draw.rect(screen, GRID_LINE, cellr, 1)
+
+            if v == WALL:
+                rounded_rect(screen, cellr.inflate(-6, -6), WALL_COL, radius=8)
+            elif v == EXIT:
+                cx, cy = cellr.center
+                soft_glow_circle(screen, (cx, cy), 12, EXIT_COL, layers=7, alpha_start=75)
+                pygame.draw.circle(screen, EXIT_COL, (cx, cy), 12)
+            elif v == PLAYER:
+                cx, cy = cellr.center
+                soft_glow_circle(screen, (cx, cy), 12, PLAYER_COL, layers=7, alpha_start=75)
+                pygame.draw.circle(screen, PLAYER_COL, (cx, cy), 12)
+            elif v == ENEMY:
+                cx, cy = cellr.center
+                soft_glow_circle(screen, (cx, cy), 11, ENEMY_COL, layers=6, alpha_start=70)
+                pygame.draw.circle(screen, ENEMY_COL, (cx, cy), 11)
+
+    # cursor highlight
+    cx, cy = cursor
+    cur_cell = pygame.Rect(GRID_RECT.x + cx * CELL, GRID_RECT.y + cy * CELL, CELL, CELL)
+    pulse = (math.sin(t * 6.0) + 1.0) * 0.5
+    soft_glow_rect(screen, cur_cell, CURSOR_COL, alpha=int(80 * pulse), grow=10, radius=12)
+    pygame.draw.rect(screen, CURSOR_COL, cur_cell, 3, border_radius=8)
+
+    # play runtime overlay
+    if mode == MODE_PLAY:
+        draw_runtime_entities()
+
+    # status line
+    status_rect = pygame.Rect(GRID_RECT.x, GRID_RECT.bottom + 18, GRID_RECT.w, 46)
+    rounded_rect(screen, status_rect, (22, 26, 38), radius=16)
+    rounded_rect(screen, status_rect, (60, 70, 95), radius=16, width=2)
+
+    if mode == MODE_BUILD:
+        msg = "BUILD: Tap=cycle tool • Double-tap=place • Hold=move cursor • Triple-tap=PLAY"
     else:
-        game_state = "READY"
+        if player_pos is None or exit_pos is None:
+            msg = "PLAY: Place a PLAYER and an EXIT first. Triple-tap back to BUILD."
+        elif game_state == "RUN":
+            msg = "RUNNING... Tap=pause • Double-tap=reset • Triple-tap=BUILD"
+        elif game_state == "WIN":
+            msg = "YOU WIN! Double-tap=reset • Triple-tap=BUILD"
+        elif game_state == "LOSE":
+            msg = "YOU DIED! Double-tap=reset • Triple-tap=BUILD"
+        else:
+            msg = "PLAY READY: Tap=start • Double-tap=reset • Triple-tap=BUILD"
 
-def simulate_play_step():
-    global player_pos, enemy_positions, game_state
-    if player_pos is None or exit_pos is None:
-        game_state = "READY"
+    screen.blit(font_small.render(msg, True, TEXT_DIM), (status_rect.x + 16, status_rect.y + 15))
+
+def draw_runtime_entities():
+    if player_pos is None:
         return
 
-    player_pos = bfs_next_step(player_pos, exit_pos)
-    enemy_positions = [bfs_next_step(e, player_pos) for e in enemy_positions]
-
-    if any(e == player_pos for e in enemy_positions):
-        game_state = "LOSE"
-        return
-    if player_pos == exit_pos:
-        game_state = "WIN"
-        return
-
-def draw_runtime_entities_on_grid(surf):
-    if mode != MODE_PLAY or player_pos is None:
-        return
-    grid_rect = pygame.Rect(GRID_X + 280, GRID_Y, GRID_W * CELL, GRID_H * CELL)
-
+    # enemies first
     for ex, ey in enemy_positions:
-        cellr = pygame.Rect(grid_rect.x + ex * CELL, grid_rect.y + ey * CELL, CELL, CELL)
+        cellr = pygame.Rect(GRID_RECT.x + ex * CELL, GRID_RECT.y + ey * CELL, CELL, CELL)
         cx, cy = cellr.center
-        soft_glow_circle(surf, (cx, cy), 11, ENEMY_COL, layers=7, alpha_start=80)
-        pygame.draw.circle(surf, ENEMY_COL, (cx, cy), 11)
+        soft_glow_circle(screen, (cx, cy), 11, ENEMY_COL, layers=8, alpha_start=85)
+        pygame.draw.circle(screen, ENEMY_COL, (cx, cy), 11)
 
     px, py = player_pos
-    cellr = pygame.Rect(grid_rect.x + px * CELL, grid_rect.y + py * CELL, CELL, CELL)
+    cellr = pygame.Rect(GRID_RECT.x + px * CELL, GRID_RECT.y + py * CELL, CELL, CELL)
     cx, cy = cellr.center
-    soft_glow_circle(surf, (cx, cy), 12, PLAYER_COL, layers=9, alpha_start=90)
-    pygame.draw.circle(surf, PLAYER_COL, (cx, cy), 12)
-
-# -----------------------------
-# ONE-BUTTON INPUT LANGUAGE
-# -----------------------------
-DOUBLE_TAP_WINDOW = 0.33
-TRIPLE_TAP_WINDOW = 0.75
-HOLD_THRESHOLD = 0.38
-
-btn_mouse_pos = (0, 0)
-press_start_time = 0.0
-tap_times = []
-
-pending_single_tap = False
-pending_tap_time = 0.0
-
-def register_tap(t):
-    tap_times.append(t)
-    while tap_times and t - tap_times[0] > TRIPLE_TAP_WINDOW:
-        tap_times.pop(0)
-
-def recent_taps(t, window):
-    return [x for x in tap_times if t - x <= window]
+    soft_glow_circle(screen, (cx, cy), 12, PLAYER_COL, layers=10, alpha_start=95)
+    pygame.draw.circle(screen, PLAYER_COL, (cx, cy), 12)
 
 # -----------------------------
 # MAIN LOOP
 # -----------------------------
-running = True
-last_time = time.time()
+reset_runtime_from_board()
 
-reset_level_runtime_from_board()
+while True:
+    dt = clock.tick(60) / 1000.0
+    mouse_pos = pygame.mouse.get_pos()
 
-while running:
-    now = time.time()
-    dt = clamp(now - last_time, 0.0, 0.05)
-    last_time = now
+    # Current button rect for hit test
+    btn_rect = get_button_rect(press_amount)
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
 
-        # Optional keyboard helpers (not required)
+        # Optional keyboard helpers
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_c:
                 clear_board()
             elif event.key == pygame.K_r:
                 play_reset()
 
-        if event.type == pygame.MOUSEMOTION:
-            wid = getattr(event, "window", None)
-            if wid is None:
-                wid = getattr(event, "windowID", None)
-            if wid == BTN_ID:
-                btn_mouse_pos = event.pos
-
-        # One-button presses ONLY from the button window
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            wid = getattr(event, "window", None)
-            if wid is None:
-                wid = getattr(event, "windowID", None)
-            if wid == BTN_ID:
-                rect = get_button_rect(press_amount)
-                if rect.collidepoint(event.pos):
-                    is_pressing = True
-                    press_start_time = now
+            # Only count as "the button" if click started on the button rect
+            if btn_rect.collidepoint(event.pos):
+                is_pressing = True
+                mouse_down_started_on_button = True
+                press_start_time = time.time()
+            else:
+                mouse_down_started_on_button = False
 
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            wid = getattr(event, "window", None)
-            if wid is None:
-                wid = getattr(event, "windowID", None)
-            if wid == BTN_ID and is_pressing:
+            if is_pressing and mouse_down_started_on_button:
                 is_pressing = False
+                mouse_down_started_on_button = False
+
+                now = time.time()
                 dur = now - press_start_time
 
+                # HOLD just moves cursor continuously, no "release action"
                 if dur < HOLD_THRESHOLD:
+                    # TAP registered
                     register_tap(now)
 
-                    # Triple tap -> toggle mode
+                    # TRIPLE TAP => toggle mode immediately
                     if len(recent_taps(now, TRIPLE_TAP_WINDOW)) >= 3:
                         tap_times.clear()
                         pending_single_tap = False
                         toggle_mode()
                     else:
+                        # wait to resolve single vs double
                         pending_single_tap = True
                         pending_tap_time = now
+            else:
+                is_pressing = False
+                mouse_down_started_on_button = False
 
-    # Animate button
+    # Animate press
     target = 1.0 if is_pressing else 0.0
     press_amount = lerp(press_amount, target, min(1.0, PRESS_SPEED * dt))
 
-    # Holding moves cursor in BUILD mode
+    # Hold moves cursor in BUILD mode (only while actually holding the button)
     if is_pressing and mode == MODE_BUILD:
         move_cursor_scan(dt)
 
-    # Resolve single vs double
+    # Resolve single vs double tap
     if pending_single_tap:
+        now = time.time()
         if len(recent_taps(now, DOUBLE_TAP_WINDOW)) >= 2:
+            # DOUBLE TAP
             tap_times.clear()
             pending_single_tap = False
+
             if mode == MODE_BUILD:
                 place_tool_at_cursor()
             else:
                 play_reset()
         elif now - pending_tap_time > DOUBLE_TAP_WINDOW:
+            # SINGLE TAP
             pending_single_tap = False
+
             if mode == MODE_BUILD:
                 tool_index = (tool_index + 1) % len(TOOLS)
             else:
@@ -578,17 +577,13 @@ while running:
             sim_accum -= SIM_STEP
             simulate_play_step()
 
-    # Draw button window
-    btn_label = "BUILD" if mode == MODE_BUILD else "PLAY"
-    draw_button_ui(btn_surface, btn_mouse_pos, press_amount, label=btn_label)
-    renderer_present_surface(btn_renderer, btn_surface, BTN_W, BTN_H)
+    # -----------------------------
+    # DRAW
+    # -----------------------------
+    # Right side first (background)
+    draw_right_side()
 
-    # Draw board window
-    draw_board_window(board_surface)
-    draw_runtime_entities_on_grid(board_surface)
-    renderer_present_surface(board_renderer, board_surface, BOARD_W, BOARD_H)
+    # Left panel on top
+    draw_left_panel(mouse_pos)
 
-    pygame.time.delay(10)
-
-pygame.quit()
-sys.exit(0)
+    pygame.display.flip()
