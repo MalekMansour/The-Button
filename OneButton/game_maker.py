@@ -604,9 +604,6 @@ while True:
                         pending_time = now
 
                 else:
-                    # A HOLD release by itself doesn't place or move,
-                    # it's only meaningful if it's the held second/third tap — handled below.
-                    # We'll do nothing here.
                     pass
 
     # Resolve pending single vs double/triple based on time window
