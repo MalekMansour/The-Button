@@ -612,22 +612,8 @@ while True:
     # Resolve pending single vs double/triple based on time window
     if mode == MODE_BUILD and pending_single:
         now = time.time()
-        # Double?
         if recent_count(now, DOUBLE_WINDOW) >= 2:
-            # DOUBLE TAP:
-            # normal: step RIGHT
-            # if second click was held, start auto LEFT
-            # We detect "held second click" by checking duration of the last release (this release).
-            # If user did click-release then click-hold-release as the 2nd tap, dur will be >= HOLD_THRESHOLD.
-            # BUT our "tap" branch only fires when dur < HOLD_THRESHOLD.
-            # So to support "double tap then hold", we allow holding the 2nd click by:
-            # - user: click-release, click-hold-release
-            # => on second release dur >= HOLD_THRESHOLD, we won't register tap in that moment.
-            # So we need another way: treat a long release that happened soon after a prior tap as "held 2nd tap".
-            #
-            # To keep it intuitive and match what you said:
-            # We'll interpret:
-            #   - If there is 1 tap recently, and the next press is a HOLD, that HOLD triggers the "held second tap" effect.
+
             pass
 
         if now - pending_time > DOUBLE_WINDOW:
