@@ -612,7 +612,7 @@ while True:
     # Resolve pending single vs double/triple based on time window
     if mode == MODE_BUILD and pending_single:
         now = time.time()
-        if recent_count(now, DOUBLE_WINDOW) >= 2:
+X        if recent_count(now, DOUBLE_WINDOW) >= 2:
 
             pass
 
