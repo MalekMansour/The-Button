@@ -630,7 +630,6 @@ while True:
             #   - If there is 1 tap recently, and the next press is a HOLD, that HOLD triggers the "held second tap" effect.
             pass
 
-        # If time window expired and no second tap => SINGLE PLACE
         if now - pending_time > DOUBLE_WINDOW:
             pending_single = False
             tap_times.clear()
