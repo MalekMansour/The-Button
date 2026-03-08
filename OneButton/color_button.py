@@ -132,11 +132,9 @@ while True:
             is_pressing = False
             mouse_down_started_on_btn = False
 
-    # If mouse moves off button while holding, stop pressing animation
     if is_pressing and not current_rect.collidepoint(mouse_pos):
         is_pressing = False
 
-    # Animate press_amount toward target
     target = 1.0 if is_pressing else 0.0
     press_amount = lerp(press_amount, target, min(1.0, PRESS_SPEED * dt))
 
