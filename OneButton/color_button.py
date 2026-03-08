@@ -125,9 +125,9 @@ while True:
                 press_duration = (pygame.time.get_ticks() / 1000.0) - press_start_time
 
                 if press_duration >= HOLD_TIME:
-                    BG = random_color_wheel()   # hold = change background
+                    BG = random_color_wheel()  
                 else:
-                    RED = random_color_wheel()  # tap = change button
+                    RED = random_color_wheel() 
 
             is_pressing = False
             mouse_down_started_on_btn = False
