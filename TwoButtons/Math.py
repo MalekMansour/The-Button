@@ -3,13 +3,11 @@ import sys
 
 pygame.init()
 
-# Window
 WIDTH, HEIGHT = 900, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("The Buttons")
 clock = pygame.time.Clock()
 
-# Colors
 BG = (240, 240, 240)
 
 RED = (210, 40, 40)
