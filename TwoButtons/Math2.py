@@ -155,8 +155,6 @@ while True:
     value_surface = number_font.render(str(value), True, DARK)
     value_rect = value_surface.get_rect(center=(WIDTH // 2, 210))
     screen.blit(value_surface, value_rect)
-
-    # Buttons
     left_rect = get_button_rect(left_center, left_press_amount)
     right_rect = get_button_rect(right_center, right_press_amount)
 
