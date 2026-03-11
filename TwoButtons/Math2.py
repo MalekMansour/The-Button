@@ -150,8 +150,6 @@ while True:
     title_surface = font.render("Math Buttons", True, DARK)
     title_rect = title_surface.get_rect(center=(WIDTH // 2, 90))
     screen.blit(title_surface, title_rect)
-
-    # Counter
     value_surface = number_font.render(str(value), True, DARK)
     value_rect = value_surface.get_rect(center=(WIDTH // 2, 210))
     screen.blit(value_surface, value_rect)
