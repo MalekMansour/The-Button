@@ -145,18 +145,3 @@ while True:
 
     # Draw
     screen.fill(BG)
-
-    # Title
-    title_surface = font.render("Math Buttons", True, DARK)
-    title_rect = title_surface.get_rect(center=(WIDTH // 2, 90))
-    screen.blit(title_surface, title_rect)
-    value_surface = number_font.render(str(value), True, DARK)
-    value_rect = value_surface.get_rect(center=(WIDTH // 2, 210))
-    screen.blit(value_surface, value_rect)
-    left_rect = get_button_rect(left_center, left_press_amount)
-    right_rect = get_button_rect(right_center, right_press_amount)
-
-    draw_button(left_rect, mouse_pos, left_press_amount, RED, HOVER_RED, PRESSED_RED, RED_SHADOW, "+1")
-    draw_button(right_rect, mouse_pos, right_press_amount, BLUE, HOVER_BLUE, PRESSED_BLUE, BLUE_SHADOW, "-1")
-
-    pygame.display.flip()
