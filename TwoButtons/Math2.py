@@ -143,19 +143,7 @@ while True:
     left_press_amount = lerp(left_press_amount, left_target, min(1.0, PRESS_SPEED * dt))
     right_press_amount = lerp(right_press_amount, right_target, min(1.0, PRESS_SPEED * dt))
 
-    # Draw
-    screen.fill(BG)
-
-    # Title
-    title_surface = font.render("Math Buttons", True, DARK)
-    title_rect = title_surface.get_rect(center=(WIDTH // 2, 90))
-    screen.blit(title_surface, title_rect)
-
-    # Counter
-    value_surface = number_font.render(str(value), True, DARK)
-    value_rect = value_surface.get_rect(center=(WIDTH // 2, 210))
-    screen.blit(value_surface, value_rect)
-
+  
     # Buttons
     left_rect = get_button_rect(left_center, left_press_amount)
     right_rect = get_button_rect(right_center, right_press_amount)
