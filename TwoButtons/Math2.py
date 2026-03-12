@@ -137,9 +137,7 @@ while True:
 
     left_press_amount = lerp(left_press_amount, left_target, min(1.0, PRESS_SPEED * dt))
     right_press_amount = lerp(right_press_amount, right_target, min(1.0, PRESS_SPEED * dt))
-
   
-    # Buttons
     left_rect = get_button_rect(left_center, left_press_amount)
     right_rect = get_button_rect(right_center, right_press_amount)
 
