@@ -84,12 +84,7 @@ def draw_button(rect, mouse_pos, press_t, base_color, hover_color, pressed_color
     # Button body
     pygame.draw.rect(screen, color, rect, border_radius=border_radius)
 
-    # Gloss highlight
-    highlight_alpha = int(lerp(70, 25, press_t))
-    highlight_rect = pygame.Rect(rect.x, rect.y, rect.width, rect.height // 3)
-    highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
-    highlight_surface.fill((255, 255, 255, highlight_alpha))
-    screen.blit(highlight_surface, highlight_rect.topleft)
+    
 
     # Text
     text_surface = font.render(label, True, TEXT)
